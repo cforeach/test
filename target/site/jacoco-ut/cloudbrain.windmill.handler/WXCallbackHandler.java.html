@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WXCallbackHandler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">server</a> &gt; <a href="index.source.html" class="el_package">cloudbrain.windmill.handler</a> &gt; <span class="el_source">WXCallbackHandler.java</span></div><h1>WXCallbackHandler.java</h1><pre class="source lang-java linenums">package cloudbrain.windmill.handler;
+
+import java.io.IOException;
+import org.apache.logging.log4j.LogManager;
+import cloudbrain.windmill.Server;
+import cloudbrain.windmill.dao.UserDAO;
+import cloudbrain.windmill.utils.AESUtil;
+import cloudbrain.windmill.utils.ConfReadUtils;
+import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.sql.SQLClient;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+
+public class WXCallbackHandler implements Handler&lt;RoutingContext&gt; {
+
+<span class="nc" id="L23">  private final org.apache.logging.log4j.Logger logger = LogManager.getLogger();</span>
+  private JsonObject wxJsonConf;
+  private WebClient webClient;
+  private SQLClient mysqlClient;
+  private String appid;
+  private String secret;
+
+<span class="nc" id="L30">  public WXCallbackHandler(JsonObject wxJsonConf, WebClient webClient, SQLClient mysqlClient) {</span>
+<span class="nc" id="L31">    this.wxJsonConf = wxJsonConf;</span>
+<span class="nc" id="L32">    this.webClient = webClient;</span>
+<span class="nc" id="L33">    this.mysqlClient = mysqlClient;</span>
+<span class="nc" id="L34">  }</span>
+
+  @Override
+  public void handle(RoutingContext routingContext) {
+    // 操作数据库对象 userDao
+<span class="nc" id="L39">    UserDAO userDao = new UserDAO();</span>
+<span class="nc" id="L40">    HttpServerRequest request = routingContext.request();// 第三方的请求作用域</span>
+<span class="nc" id="L41">    String code = request.getParam(&quot;code&quot;);// 获取code</span>
+
+<span class="nc" id="L43">    appid = wxJsonConf.getString(&quot;appid&quot;);</span>
+<span class="nc" id="L44">    secret = wxJsonConf.getString(&quot;secret&quot;);</span>
+
+    // 发送给微信获取acctoken的url
+<span class="nc" id="L47">    String Url_To_Wx = wxJsonConf.getString(&quot;Get_AccessToken_Url&quot;) + appid + &quot;&amp;secret=&quot; + secret</span>
+        + &quot;&amp;grant_type=authorization_code&amp;code=&quot; + code;
+
+<span class="nc" id="L50">    webClient.get(Url_To_Wx).putHeader(&quot;content-type&quot;, &quot;application/json;charset=utf-8&quot;).send(msg -&gt; {</span>
+<span class="nc bnc" id="L51" title="All 2 branches missed.">      if (msg.failed()) {</span>
+<span class="nc" id="L52">        logger.error(msg.cause());// 网络响应失败</span>
+<span class="nc" id="L53">        routingContext.response().setStatusCode(401).end(&quot;401&quot;);// 响应状态码</span>
+<span class="nc" id="L54">        return;</span>
+      }
+     //判断返回值是否包括指定的Key
+<span class="nc bnc" id="L57" title="All 2 branches missed.">      if (msg.result().bodyAsJsonObject().containsKey(&quot;openid&quot;)) {</span>
+<span class="nc" id="L58">        HttpResponse&lt;Buffer&gt; result = msg.result();</span>
+<span class="nc" id="L59">        JsonObject jsonObject = result.bodyAsJsonObject();// 发给微信code后微信返回的jsonObject</span>
+<span class="nc" id="L60">        String old_access_token = jsonObject.getString(&quot;access_token&quot;);// 从response获取access_token</span>
+<span class="nc" id="L61">        String new_access_token = AESUtil.encrypt(old_access_token);// 加密后的token</span>
+<span class="nc" id="L62">        String openid = jsonObject.getString(&quot;openid&quot;);// 从response获取openid</span>
+
+        // 获取用户信息的微信请求地址(未处理token和oppenid)
+<span class="nc" id="L65">        String Get_UserInfo_Url = wxJsonConf.getString(&quot;Get_UserInfo_Url&quot;);</span>
+        // 拼接access_token和oppenid到url
+<span class="nc" id="L67">        String new_getUserInfo_Url = Get_UserInfo_Url + &quot;access_token=&quot; + old_access_token + &quot;&amp;openid=&quot; + openid;</span>
+
+<span class="nc" id="L69">        webClient.get(new_getUserInfo_Url).putHeader(&quot;content-type&quot;, &quot;application/json;charset=utf-8&quot;).send(msg2 -&gt; {</span>
+<span class="nc bnc" id="L70" title="All 2 branches missed.">          if (msg2.succeeded()) {</span>
+<span class="nc" id="L71">            JsonObject userInfoJsonObj = result.bodyAsJsonObject();// 给微信code返回的包含用户信息的jsonObj</span>
+<span class="nc" id="L72">            String NICKNAME = userInfoJsonObj.getString(&quot;nickname&quot;);// 获取NICKNAME</span>
+<span class="nc" id="L73">            String HEADIMGURL = userInfoJsonObj.getString(&quot;headimgurl&quot;);// 获取HEADIMGURL</span>
+<span class="nc" id="L74">            String unionID = userInfoJsonObj.getString(&quot;unionid&quot;);// 返回给用户的token</span>
+            // 先在数据库保存用户数据
+<span class="nc" id="L76">            userDao.getReplaceSQL(routingContext, userInfoJsonObj);</span>
+<span class="nc" id="L77">            String sqlReturn = userDao.getReplaceSQL(routingContext, userInfoJsonObj);</span>
+<span class="nc" id="L78">            JsonArray params = null; //jsonArray装jsonObject</span>
+<span class="nc" id="L79">            params.add(NICKNAME).add(HEADIMGURL).add(unionID);</span>
+<span class="nc" id="L80">            mysqlClient.updateWithParams(&quot;insert into t_user (nickname,headimgurl,unionid) values (?,?,?)&quot;, params, res-&gt;{</span>
+<span class="nc bnc" id="L81" title="All 2 branches missed.">              if(res.succeeded()){</span>
+                
+              }
+              else{
+<span class="nc" id="L85">                logger.error(res.cause());//打印错误信息</span>
+              }
+<span class="nc" id="L87">            });</span>
+            
+<span class="nc" id="L89">            JsonObject responseJson = new JsonObject();// 整个返回的json</span>
+<span class="nc" id="L90">            responseJson.put(&quot;token&quot;, new_access_token);// 加密后的token</span>
+<span class="nc" id="L91">            JsonObject userResponseJson = new JsonObject();// 封装用户信息的json</span>
+<span class="nc" id="L92">            userResponseJson.put(&quot;unionid&quot;, unionID);</span>
+<span class="nc" id="L93">            userResponseJson.put(&quot;nickname&quot;, NICKNAME);</span>
+<span class="nc" id="L94">            userResponseJson.put(&quot;headimgurl&quot;, HEADIMGURL);</span>
+<span class="nc" id="L95">            responseJson.put(&quot;user&quot;, userResponseJson);</span>
+<span class="nc" id="L96">            routingContext.response().putHeader(&quot;content-type&quot;, &quot;application/json&quot;).end(responseJson.encode());</span>
+
+<span class="nc" id="L98">          } else {</span>
+<span class="nc" id="L99">            logger.error(msg.cause());</span>
+<span class="nc" id="L100">            routingContext.response().setStatusCode(401).end(&quot;401&quot;);// 响应状态码</span>
+          }
+<span class="nc" id="L102">        });</span>
+<span class="nc" id="L103">      } </span>
+      else{
+<span class="nc" id="L105">        logger.error(msg.cause());// 网络正常，但是返回信息没有包含用户信息</span>
+<span class="nc" id="L106">        routingContext.response().setStatusCode(401).end(&quot;401&quot;);// 响应给手机用户状态码</span>
+      }
+      
+<span class="nc" id="L109">    });</span>
+<span class="nc" id="L110">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

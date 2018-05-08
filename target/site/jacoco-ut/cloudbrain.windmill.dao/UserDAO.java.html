@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>UserDAO.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">server</a> &gt; <a href="index.source.html" class="el_package">cloudbrain.windmill.dao</a> &gt; <span class="el_source">UserDAO.java</span></div><h1>UserDAO.java</h1><pre class="source lang-java linenums">package cloudbrain.windmill.dao;
+
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+
+<span class="nc" id="L15">public class UserDAO {</span>
+
+  public String getReplaceSQL(RoutingContext routingContext, JsonObject userInfoJsonObj)  {
+    
+<span class="nc" id="L19">    String createTime = new SimpleDateFormat(&quot;yyyy-MM-dd&quot;).format(new Date());</span>
+<span class="nc" id="L20">    String nickname=userInfoJsonObj.getString(&quot;nickname&quot;);</span>
+<span class="nc" id="L21">    String headimgurl=userInfoJsonObj.getString(&quot;headimgurl&quot;);</span>
+<span class="nc" id="L22">    String unionid=userInfoJsonObj.getString(&quot;unionid&quot;);</span>
+    
+<span class="nc" id="L24">    Connection conn = routingContext.get(&quot;mysqlconn&quot;);</span>
+<span class="nc" id="L25">    String sql=&quot;replace into t_user (nickname,headimgurl,unionid) values (?,?,?)&quot;;</span>
+<span class="nc" id="L26">    int i=0;</span>
+    try {
+<span class="nc" id="L28">      PreparedStatement ps = conn.prepareStatement(sql);</span>
+<span class="nc" id="L29">      ps.setString(1, nickname);</span>
+<span class="nc" id="L30">      ps.setString(2, headimgurl);</span>
+<span class="nc" id="L31">      ps.setString(3, unionid);</span>
+      
+<span class="nc" id="L33">        i = ps.executeUpdate(sql);</span>
+<span class="nc" id="L34">    } catch (SQLException e) {</span>
+      // TODO Auto-generated catch block
+<span class="nc" id="L36">      e.printStackTrace();</span>
+<span class="nc" id="L37">    }</span>
+<span class="nc" id="L38">    return String.valueOf(i);</span>
+    /** 
+    * @author cforeach 
+    * @version 创建时间：2018年5月4日 下午5:23:42 
+    * 类说明 
+    */ 
+  }
+  
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>
