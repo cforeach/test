@@ -1,2 +1,6 @@
-cloudbrain\windmill\web\ConnectionTest.class
-cloudbrain\windmill\web\initClass.class
+cloudbrain\windmill\handler\MysqlDemoTest.class
+cloudbrain\windmill\handler\GetUserHandlerTest.class
+cloudbrain\windmill\handler\LoginHandlerTest.class
+cloudbrain\windmill\handler\WXCallBackHanderTest.class
+cloudbrain\windmill\handler\BaseClassTest.class
+cloudbrain\windmill\handler\test.class

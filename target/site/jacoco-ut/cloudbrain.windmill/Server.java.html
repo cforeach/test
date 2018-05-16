@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Server.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">server</a> &gt; <a href="index.source.html" class="el_package">cloudbrain.windmill</a> &gt; <span class="el_source">Server.java</span></div><h1>Server.java</h1><pre class="source lang-java linenums">package cloudbrain.windmill;
 
 import cloudbrain.windmill.constant.UrlConstant;
+import cloudbrain.windmill.handler.LoginHandler;
+import cloudbrain.windmill.handler.GetUserHandler;
 import cloudbrain.windmill.handler.WXCallbackHandler;
 import cloudbrain.windmill.utils.ConfReadUtils;
 import io.vertx.core.AbstractVerticle;
@@ -26,78 +28,77 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 
-<span class="nc" id="L29">public class Server extends AbstractVerticle {</span>
-  private  int vertx_port;
-  private  JsonObject serverConf;
-  private  SQLClient mysqlClient;
-  private JsonObject wxJsonConf;
+<span class="nc" id="L31">public class Server extends AbstractVerticle {</span>
+	private int vertx_port;
+	private JsonObject serverConf;
+	private SQLClient mysqlClient;
+	private JsonObject wxJsonConf;
+	private WebClient webClient;
+<span class="nc" id="L37">	private static final Logger logger = LogManager.getLogger();</span>
 
-  private static WebClient webClient;
-<span class="nc" id="L36">  private static final Logger logger = LogManager.getLogger();</span>
+	public static void main(String[] args) {
+<span class="nc" id="L40">		Vertx vertx = Vertx.vertx();</span>
+<span class="nc" id="L41">		vertx.deployVerticle(Server.class, new DeploymentOptions());</span>
 
+<span class="nc" id="L43">	}</span>
 
-  public static void main(String[] args) {
-<span class="nc" id="L40">    Vertx vert = Vertx.vertx();</span>
-<span class="nc" id="L41">    vert.deployVerticle(Server.class, new DeploymentOptions());</span>
-<span class="nc" id="L42">  }</span>
+	@Override
+	public void start() throws Exception {
+<span class="nc" id="L47">		Router router = Router.router(vertx);</span>
+<span class="nc" id="L48">		router.route().handler(BodyHandler.create());</span>
+<span class="nc" id="L49">		router.route().handler(LoggerHandler.create(LoggerFormat.DEFAULT));// 安装日志处理器</span>
+		// 从配置文件获取webClientOptions的信息
+<span class="nc" id="L51">		serverConf = ConfReadUtils.getServerConfByJson(&quot;conf.json&quot;);</span>
+<span class="nc" id="L52">		JsonObject webClientOptions = serverConf.getJsonObject(&quot;wx&quot;).getJsonObject(&quot;webClientOptions&quot;);</span>
 
-  @Override
-  public void start() throws Exception {
-<span class="nc" id="L46">    Router router = Router.router(vertx);</span>
-<span class="nc" id="L47">    router.route().handler(BodyHandler.create());</span>
-<span class="nc" id="L48">    router.route().handler(LoggerHandler.create(LoggerFormat.DEFAULT));//安装日志处理器</span>
+<span class="nc" id="L54">		WebClientOptions options = new WebClientOptions(webClientOptions);</span>
 
-    //从配置文件获取appid和secret
-<span class="nc" id="L51">    String appid = ConfReadUtils.getServerConfByJson(&quot;conf.json&quot;).getJsonObject(&quot;wx&quot;).getString(&quot;appid&quot;);</span>
-<span class="nc" id="L52">    String secret = ConfReadUtils.getServerConfByJson(&quot;conf.json&quot;).getJsonObject(&quot;wx&quot;).getString(&quot;secret&quot;);</span>
-    //初始化映射
-<span class="nc" id="L54">    router.get(UrlConstant.WX_LOGIN_CALL_BACK).handler(new WXCallbackHandler(wxJsonConf,webClient,mysqlClient));</span>
-<span class="nc" id="L55">    JsonObject mysqlConf = serverConf.getJsonObject(&quot;mysql&quot;);</span>
-<span class="nc" id="L56">    mysqlClient = MySQLClient.createNonShared(vertx, mysqlConf);</span>
-<span class="nc" id="L57">    mysqlClient.updateWithParams(null, null, null);</span>
+<span class="nc" id="L56">		webClient = WebClient.create(vertx, options);</span>
 
-<span class="nc" id="L59">    Handler&lt;RoutingContext&gt; mysqlHandler = routingContext</span>
-<span class="nc" id="L60">            -&gt; mysqlClient.getConnection(res -&gt; {</span>
-<span class="nc bnc" id="L61" title="All 2 branches missed.">              if (res.failed()) {</span>
-<span class="nc" id="L62">                routingContext.fail(res.cause());</span>
-              } else {
-<span class="nc" id="L64">                SQLConnection conn = res.result();</span>
-<span class="nc" id="L65">                routingContext.put(&quot;mysqlconn&quot;, conn);</span>
-<span class="nc" id="L66">                routingContext.addHeadersEndHandler(done</span>
-<span class="nc" id="L67">                        -&gt; conn.close(v -&gt; {</span>
-<span class="nc" id="L68">                }));</span>
-<span class="nc" id="L69">                routingContext.next();</span>
-              }
-<span class="nc" id="L71">            }</span>
-    );
+<span class="nc" id="L58">		JsonObject mysqlConf = serverConf.getJsonObject(&quot;mysql&quot;);</span>
+<span class="nc" id="L59">		mysqlClient = MySQLClient.createNonShared(vertx, mysqlConf);</span>
+		// 定义获取连接的handler
+<span class="nc" id="L61">		Handler&lt;RoutingContext&gt; mysqlHandler = routingContext -&gt; mysqlClient.getConnection(res -&gt; {</span>
+<span class="nc bnc" id="L62" title="All 2 branches missed.">			if (res.failed()) {</span>
+<span class="nc" id="L63">				routingContext.fail(res.cause());</span>
+<span class="nc" id="L64">			} else {</span>
+<span class="nc" id="L65">				SQLConnection conn = res.result();</span>
+<span class="nc" id="L66">				routingContext.put(&quot;mysqlconn&quot;, conn);</span>
+<span class="nc" id="L67">				routingContext.addHeadersEndHandler(done -&gt; conn.close(v -&gt; {</span>
+<span class="nc" id="L68">				}));</span>
+<span class="nc" id="L69">				routingContext.next();</span>
+			}
+<span class="nc" id="L71">		});</span>
+		// 定义关闭连接的handler
+<span class="nc" id="L73">		Handler&lt;RoutingContext&gt; mysqlfailHandler = routingContext -&gt; {</span>
+<span class="nc" id="L74">			SQLConnection conn = routingContext.get(&quot;mysqlconn&quot;);</span>
+<span class="nc bnc" id="L75" title="All 2 branches missed.">			if (conn != null) {</span>
+<span class="nc" id="L76">				conn.close(v -&gt; {</span>
+<span class="nc" id="L77">				});</span>
+			}
+<span class="nc" id="L79">		};</span>
 
-<span class="nc" id="L74">    Handler&lt;RoutingContext&gt; mysqlfailHandler = routingContext -&gt; {</span>
-<span class="nc" id="L75">      SQLConnection conn = routingContext.get(&quot;mysqlconn&quot;);</span>
-<span class="nc bnc" id="L76" title="All 2 branches missed.">      if (conn != null) {</span>
-<span class="nc" id="L77">        conn.close(v -&gt; {</span>
-<span class="nc" id="L78">        });</span>
-      }
-<span class="nc" id="L80">    };</span>
-<span class="nc" id="L81">    router.route(&quot;/&quot;).handler(mysqlHandler)</span>
-<span class="nc" id="L82">            .handler(TimeoutHandler.create(3 * 1000))</span>
-<span class="nc" id="L83">            .failureHandler(mysqlfailHandler);</span>
+		/**
+		 * 路由注册sqlHandler和failureHandler，获取连接和关闭连接
+		 */
+<span class="nc" id="L84">		router.route(&quot;/*&quot;).handler(mysqlHandler).handler(TimeoutHandler.create(5 * 1000)).failureHandler(mysqlfailHandler);</span>
 
-    //创建server服务，监听vertx端口
-<span class="nc" id="L86">    HttpServer httpServer = vertx.createHttpServer();</span>
-    
-<span class="nc" id="L88">    vertx_port=ConfReadUtils.getServerConfByJson(&quot;json.conf&quot;).getJsonObject(&quot;vertx&quot;).getInteger(&quot;port&quot;);</span>
-    
-<span class="nc" id="L90">    httpServer.requestHandler(router::accept).listen(vertx_port);//监听vertx端口</span>
-    
-    //创建带有指定options的WebClient
-      //从配置文件获取webClientOptions的信息
-<span class="nc" id="L94">    JsonObject webClientOptions = serverConf.getJsonObject(&quot;wx&quot;).getJsonObject(&quot;webClientOptions&quot;);</span>
-    
-<span class="nc" id="L96">    WebClientOptions options = new WebClientOptions(webClientOptions);</span>
-    
-<span class="nc" id="L98">    webClient = WebClient.create(vertx,options);</span>
-    
-<span class="nc" id="L100">  }</span>
+		// 初始化映射
+		// 返回二维码地址
+<span class="nc" id="L88">		router.get(UrlConstant.WX_LOGIN_URL).handler(new LoginHandler());</span>
+		// 授权凭证回调
+		//router.get(UrlConstant.WX_LOGIN_CALL_BACK).handler(new WXCallbackHandler(wxJsonConf, webClient, mysqlClient));
+		// 使用access_token查询用户信息
+<span class="nc" id="L92">		router.get(UrlConstant.GET_USER_BY_TOKEN).handler(new GetUserHandler(mysqlClient));</span>
+
+		// 创建server服务，监听vertx端口
+<span class="nc" id="L95">		HttpServer httpServer = vertx.createHttpServer();</span>
+
+<span class="nc" id="L97">		vertx_port = ConfReadUtils.getServerConfByJson(&quot;conf.json&quot;).getJsonObject(&quot;vertx&quot;).getInteger(&quot;port&quot;);</span>
+
+<span class="nc" id="L99">		httpServer.requestHandler(router::accept).listen(vertx_port);// 监听vertx端口</span>
+
+<span class="nc" id="L101">	}</span>
 
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

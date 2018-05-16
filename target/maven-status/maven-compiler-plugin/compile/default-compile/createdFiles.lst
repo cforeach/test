@@ -2,7 +2,8 @@ cloudbrain\windmill\utils\ConfReadUtils.class
 cloudbrain\windmill\handler\WXCallbackHandler.class
 cloudbrain\windmill\utils\AESUtil.class
 cloudbrain\windmill\constant\UrlConstant.class
+cloudbrain\windmill\handler\GetUserHandler.class
 cloudbrain\windmill\utils\Md5Util.class
-cloudbrain\windmill\constant\LoginConstant.class
-cloudbrain\windmill\dao\UserDAO.class
 cloudbrain\windmill\Server.class
+cloudbrain\windmill\handler\LoginHandler.class
+cloudbrain\windmill\utils\TokenUtil.class
